@@ -1,7 +1,7 @@
 package main
 
 import (
-	routes "auth_project/routes"
+	routes "github.com/pedromessetti/auth_project/routes"
 	"os"
 	"github.com/gin-gonic/gin"
 )
