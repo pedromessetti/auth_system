@@ -2,7 +2,6 @@ package helper
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -47,6 +46,10 @@ func GenerateAllTokens(email string, firstName string, lastName string, userType
 	}
 
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(SECRET_KEY))
+	if err != nil {
+		log.Panic(err)
+		return
+	}
 	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(SECRET_KEY))
 	if err != nil {
 		log.Panic(err)
@@ -57,7 +60,7 @@ func GenerateAllTokens(email string, firstName string, lastName string, userType
 }
 
 func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
-	token, err := jwt.ParseWithClaims(signedToken, claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(signedToken, &SignedDetails{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SECRET_KEY), nil
 	})
 
@@ -68,19 +71,18 @@ func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
 
 	claims, ok := token.Claims.(*SignedDetails)
 	if !ok {
-		msg = fmt.Sprintf("The token is invalid")
+		msg = "The token is invalid"
 		msg = err.Error()
 		return
 	}
 
 	if claims.ExpiresAt < time.Now().Local().Unix() {
-		msg = fmt.Sprintf("The token is expired")
+		msg = "The token is expired"
 		msg = err.Error()
 		return
 	}
 
 	return claims, msg
-
 }
 
 func UpdateAllTokens(signedToken string, signedRefreshToken string, userId string) {
@@ -113,5 +115,4 @@ func UpdateAllTokens(signedToken string, signedRefreshToken string, userId strin
 		log.Panic(err)
 		return
 	}
-	return
 }
