@@ -6,11 +6,8 @@ import (
 )
 
 func CheckUserType(c *gin.Context, role string) (err error) {
-	// Get the user type from the jwt
 	userType := c.GetString("user_type")
-
 	err = nil
-
 	// If the user type does not match the user type from the jwt
 	if userType != role {
 		err = errors.New("Unauthorized")
@@ -20,12 +17,8 @@ func CheckUserType(c *gin.Context, role string) (err error) {
 }
 
 func MatchUserTypeToUid(c *gin.Context, userId string) (err error) {
-	// Get the user type from the jwt
-	userType := c.MustGet("userType").(string)
-
-	// Get the user id from the jwt
-	uid := c.MustGet("uid").(string)
-
+	userType := c.GetString("user_type")
+	uid := c.GetString("uid")
 	err = nil
 
 	// If the user type is not "admin" and the user id does not match the user id from the jwt
