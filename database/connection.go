@@ -11,6 +11,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// The function connects to a MongoDB database using the URI specified in the `.env` file and returns a client object.
 func DBinstance() *mongo.Client {
 	err := godotenv.Load(".env")
 	if err != nil {

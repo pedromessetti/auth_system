@@ -42,19 +42,25 @@ func VerifyPassword(userPassword string, providedPassword string) (bool, string)
 	return check, msg
 }
 
+func handleError(c *gin.Context, status int, errMsg string) {
+	c.JSON(status, gin.H{"error": errMsg})
+}
+
+// The function handles the signup process for a user, including validation, checking for
+// existing users, generating tokens, and inserting the user into the database.
 func Signup() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		var user models.User
-
+		defer cancel()
 		if err := c.BindJSON(&user); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			handleError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		validationError := validate.Struct(user)
 		if validationError != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": validationError.Error()})
+			handleError(c, http.StatusBadRequest, validationError.Error())
 			return
 		}
 
@@ -62,7 +68,8 @@ func Signup() gin.HandlerFunc {
 		defer cancel()
 		if err != nil {
 			log.Panic(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occured while checking for the email"})
+			handleError(c, http.StatusInternalServerError, "Error occured while checking for the email")
+			return
 		}
 
 		password := HashPassword(*user.Password)
@@ -72,11 +79,11 @@ func Signup() gin.HandlerFunc {
 		defer cancel()
 		if err != nil {
 			log.Panic(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occured while checking for the phone"})
+			handleError(c, http.StatusInternalServerError, "Error occured while checking for the phone number")
 		}
 
 		if count > 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "User already exists"})
+			handleError(c, http.StatusInternalServerError, "User already exists")
 			return
 		}
 
@@ -87,7 +94,7 @@ func Signup() gin.HandlerFunc {
 
 		token, refreshToken, err := helper.GenerateAllTokens(*user.Email, *user.First_name, *user.Last_name, *user.User_type, user.User_id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occured while generating tokens"})
+			handleError(c, http.StatusInternalServerError, "Error occured while generating tokens")
 			return
 		}
 		user.Token = &token
@@ -95,7 +102,7 @@ func Signup() gin.HandlerFunc {
 
 		insertionNumber, insertErr := userCollection.InsertOne(ctx, user)
 		if insertErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "User item was not created"})
+			handleError(c, http.StatusInternalServerError, "Error occured while inserting user")
 			return
 		}
 		defer cancel()
@@ -103,21 +110,24 @@ func Signup() gin.HandlerFunc {
 	}
 }
 
+// The function handles the login process by verifying the user's email and password, generating
+// tokens, and updating the tokens in the database.
 func Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		var user models.User
 		var foundUser models.User
-
+		
+		defer cancel()
 		if err := c.BindJSON(&user); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			handleError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
 		defer cancel()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid email or password"})
+			handleError(c, http.StatusInternalServerError, "Invalid email or password")
 			return
 		}
 
@@ -125,18 +135,18 @@ func Login() gin.HandlerFunc {
 		defer cancel()
 
 		if !passwordIsValid {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			handleError(c, http.StatusInternalServerError, msg)
 			return
 		}
 
 		if foundUser.Email == nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
+			handleError(c, http.StatusInternalServerError, "Invalid email or password")
 			return
 		}
 
 		token, refreshToken, err := helper.GenerateAllTokens(*foundUser.Email, *foundUser.First_name, *foundUser.Last_name, *foundUser.User_type, foundUser.User_id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error occured while generating tokens"})
+			handleError(c, http.StatusInternalServerError, "Error occured while generating tokens")
 			return
 		}
 
@@ -144,18 +154,19 @@ func Login() gin.HandlerFunc {
 
 		err = userCollection.FindOne(ctx, bson.M{"user_id": foundUser.User_id}).Decode(&foundUser)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleError(c, http.StatusInternalServerError, "Error occured while updating tokens")
 			return
 		}
 		c.JSON(http.StatusOK, foundUser)
 	}
 }
 
+// Retrieves a list of users from the database and returns the result as a JSON response.
 func GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		err := helper.CheckUserType(c, "ADMIN")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			handleError(c, http.StatusUnauthorized, err.Error())
 			return
 		}
 
@@ -169,13 +180,17 @@ func GetUsers() gin.HandlerFunc {
 			page = 1
 		}
 
-		startIndex := (page - 1) * recordPerPage
-		startIndex, err = strconv.Atoi(c.Query("startIndex"))
+		startIndex, err := strconv.Atoi(c.Query("startIndex"))
 		if err != nil || startIndex < 0 {
 			startIndex = 0
 		}
 
+		// The match stage is used to filter documents based on certain criteria.
+		// In this case, the match stage is specifying an empty filter,
+		// which means it will match all documents in the collection.
 		matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
+		// Groups the documents based on a specified key and performs an operation on each group.
+		// In this case, the documents are grouped by the `_id` field with the value "null".
 		groupStage := bson.D{
 			{Key: "$group", Value: bson.D{
 				{Key: "_id", Value: "null"},
@@ -187,6 +202,9 @@ func GetUsers() gin.HandlerFunc {
 				}},
 			}},
 		}	
+		// Stage used to reshape the output of the previous stages.
+		// In this case, it is used to project the desired fields
+		// and modify the structure of the output.
 		projectStage := bson.D{
 			{Key: "$project", Value: bson.D{
 				{Key: "_id", Value: 0},
@@ -200,7 +218,7 @@ func GetUsers() gin.HandlerFunc {
 		result, err := userCollection.Aggregate(ctx, mongo.Pipeline{matchStage, groupStage, projectStage})
 		defer cancel()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleError(c, http.StatusInternalServerError, err.Error())
 			return
 		}
 
@@ -212,12 +230,13 @@ func GetUsers() gin.HandlerFunc {
 	}
 }
 
+// Retrieves a user from a database based on the user ID provided in the request parameter.
 func GetUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userId := c.Param("user_id")
 
 		if err := helper.MatchUserTypeToUid(c, userId); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			handleError(c, http.StatusUnauthorized, err.Error())
 			return
 		}
 
@@ -227,7 +246,7 @@ func GetUser() gin.HandlerFunc {
 		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
 		defer cancel()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleError(c, http.StatusInternalServerError, err.Error())
 			return
 		}
 		c.JSON(http.StatusOK, user)

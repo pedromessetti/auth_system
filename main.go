@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Sets up a server using the Gin framework, defines some routes, and runs the server on the specified port.
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
