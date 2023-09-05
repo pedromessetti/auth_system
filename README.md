@@ -21,10 +21,10 @@ This project is an authentication system implemented in the Go programming langu
 ## Usage
 
 1. Clone the repository.
-2. Edit the `.env` file in the project root directory, use a strong secret key for token generation:
-```
-SECRET_KEY=your_secret_key_here
-```
+2. Edit the `.env` file in the project root directory, add a strong secret key for token generation:
+
+        SECRET_KEY=your_secret_key_here
+
 3. Install the necessary dependencies by running:
     
        go mod tidy
