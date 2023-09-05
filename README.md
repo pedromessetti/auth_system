@@ -9,7 +9,7 @@
 - [Author](#author)
 
 ## Description
-This project is an authentication system implemented in the Go programming language. It provides user signup, login, and user management functionality. The project uses a MongoDB database for storing user information and JWT (JSON Web Tokens) for authentication.
+This project is an authentication system implemented in the Go programming language. It provides user signup, login and user management functionality. The project uses a MongoDB database for storing user information and JWT (JSON Web Tokens) for authentication.
 
 ## Requirements
 
@@ -21,10 +21,8 @@ This project is an authentication system implemented in the Go programming langu
 ## Usage
 
 1. Clone the repository.
-2. Create a `.env` file in the project root directory with the following content:
+2. Edit the `.env` file in the project root directory, use a strong secret key for token generation:
 ```
-PORT=9000
-MONGODB_URI=mongodb://localhost:27017/auth_project
 SECRET_KEY=your_secret_key_here
 ```
 3. Install the necessary dependencies by running:
