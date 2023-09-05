@@ -1,4 +1,4 @@
-<h1 align="center">Authentication Project</h1>
+<h1 align="center">Authentication System</h1>
 
 ## Table of contents
 - [Table of contents](#table-of-contents)
